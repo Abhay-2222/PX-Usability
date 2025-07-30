@@ -71,7 +71,7 @@ export default function UsabilityTester() {
     try {
       const imageBase64 = await toBase64(selectedFile)
 
-      const response = await fetch("/api/analyze", {
+      const response = await fetch("https://v0-n8n-dashboard-omega.vercel.app/api/analyze", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
