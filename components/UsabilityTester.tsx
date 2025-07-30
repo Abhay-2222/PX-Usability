@@ -22,15 +22,30 @@ function SubmitButton({ isLoading }: { isLoading: boolean }) {
   )
 }
 
+// Helper function to read file as Base64
+const toBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      // Stripping the data URL prefix, e.g., "data:image/png;base64,"
+      const base64String = (reader.result as string).split(",")[1]
+      resolve(base64String)
+    }
+    reader.onerror = (error) => reject(error)
+  })
+
 export default function UsabilityTester() {
   const [analysis, setAnalysis] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [preview, setPreview] = useState<string | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      setSelectedFile(file)
       const reader = new FileReader()
       reader.onloadend = () => {
         setPreview(reader.result as string)
@@ -38,28 +53,30 @@ export default function UsabilityTester() {
       reader.readAsDataURL(file)
     } else {
       setPreview(null)
+      setSelectedFile(null)
     }
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (!selectedFile) {
+      setError("Please select an image to upload.")
+      return
+    }
+
     setIsLoading(true)
     setError(null)
     setAnalysis(null)
 
-    const formData = new FormData(event.currentTarget)
-    const imageFile = formData.get("image")
-
-    if (!imageFile || (imageFile instanceof File && imageFile.size === 0)) {
-      setError("Please select an image to upload.")
-      setIsLoading(false)
-      return
-    }
-
     try {
+      const imageBase64 = await toBase64(selectedFile)
+
       const response = await fetch("/api/analyze", {
         method: "POST",
-        body: formData,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ imageBase64 }),
       })
 
       const result = await response.json()
@@ -122,10 +139,10 @@ export default function UsabilityTester() {
 
       <Card className="sticky top-20">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <Bot />
             AI Analysis
-          </CardTitle>
+          </div>
           <CardDescription>The usability report from Gemini will appear here.</CardDescription>
         </CardHeader>
         <CardContent className="min-h-[300px] prose prose-sm dark:prose-invert max-w-none">
